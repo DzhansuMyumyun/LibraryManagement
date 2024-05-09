@@ -1,0 +1,78 @@
+# Universal Windows Platform
+# Build a Universal Windows Platform project using Visual Studio.
+# Add steps that test and distribute an app, save build artifacts, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+- develop
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  
+
+steps:
+- task: NuGetToolInstaller@1
+
+- task: NuGetCommand@2
+  inputs:
+    restoreSolution: '$(solution)'
+
+- task: VSBuild@1
+  inputs:
+    platform: '$(buildPlatform)'
+    solution: '$(solution)'
+    configuration: '$(buildConfiguration)'
+
+
+- task: VSTest@2
+  inputs:
+    testSelector: 'testAssemblies'
+    testAssemblyVer2: |
+      **\*test*.dll
+      !**\*TestAdapter.dll
+      !**\obj\**
+    searchFolder: '$(System.DefaultWorkingDirectory)'
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
+
+- task: VSBuild@1
+  inputs:
+    solution: '$(solution)'
+    msbuildArgs: '/t:publish /p:OutputPath=$(Build.ArtifactStagingDirectory)'
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
+
+
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'Bibliotheek'
+    publishLocation: 'Container'
+
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(Build.BinariesDirectory)'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
+
+
+- task: AppCenterDistribute@3
+  inputs:
+    serverEndpoint: 'bibliotheek'
+    appSlug: 'dzhansu.halim-outlook.com/Bibliotheek'
+    appFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    buildVersion: '1.0'
+    symbolsOption: 'UWP'
+    releaseNotesOption: 'input'
+    releaseNotesInput: 'Bibliotheek beheren'
+    destinationType: 'groups'
